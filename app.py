@@ -1,15 +1,14 @@
-import sys
-import os
 import shutil
 import datetime
+
 from xlutils.copy import copy
 from xlrd import *
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QComboBox, QPushButton, QLabel, QListView, \
+    QFileSystemModel, QAbstractItemView, QDialog, QCheckBox, QShortcut, QMessageBox, QApplication, QFileDialog
+from PyQt5.QtCore import Qt, QStringListModel, QDir, pyqtSlot, QModelIndex
+from PyQt5.QtGui import QKeySequence
 
-from PyQt5.QtGui import QValidator
-from PyQt5.QtWidgets import *
-from PyQt5.QtCore import *
-
-dic_month = {"Mois":"","Janvier":"01","Février":"02","Mars":"03","Avril":"04","Mai":"05","Juin":"06","Juillet":"07","Aout":"08","Septembre":"09","Octobre":"10","Novembre":"11","Décembre":"12"}
+dic_month = {"Mois":"", "Janvier":"01", "Février":"02", "Mars":"03", "Avril":"04", "Mai":"05", "Juin":"06", "Juillet":"07", "Aout":"08", "Septembre":"09", "Octobre":"10", "Novembre":"11", "Décembre":"12"}
 
 class Widget(QWidget):
     def __init__(self, *args, **kwargs):
@@ -50,8 +49,9 @@ class Widget(QWidget):
         hlay.addWidget(self.treeview)
         hlay.addLayout(listeVB)
 
-
-        self.path = os.path.abspath("C:/Users/flo12/PycharmProjects/classeur_de_chantier/Chantier")
+        with open("config.txt", "r") as f:
+            data = f.readlines()
+        self.path = os.path.abspath(data[0])
         self.model = QStringListModel()
         self.fichier = ""
         self.month = "Mois"
@@ -64,7 +64,7 @@ class Widget(QWidget):
         self.treeview.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.listview.setModel(self.fileModel)
 
-        self.treeview.clicked.connect(self.on_clicked)
+        self.treeview.clicked[QModelIndex].connect(self.on_clicked)
         self.treeview.doubleClicked.connect(self.double_clicked)
         self.listview.doubleClicked.connect(self.click)
         self.lineEdit.textChanged.connect(self.entrPress)
@@ -72,13 +72,16 @@ class Widget(QWidget):
         self.cb_year.currentIndexChanged.connect(self.select_year)
         self.btn1.clicked.connect(self.create_dir)
 
+
     def on_clicked(self, index):
         self.listview.setRootIndex(self.fileModel.setRootPath(self.liste_dir[index.row()].absolutePath()))
         self.header.setText(self.liste_dir[index.row()].dirName())
 
+    @pyqtSlot()
     def double_clicked(self, index):
         os.startfile(self.liste_dir[index.row()].absolutePath())
 
+    @pyqtSlot()
     def click(self,index):
         path = self.fileModel.fileInfo(index).absoluteFilePath()
         os.startfile(path)
@@ -91,67 +94,82 @@ class Widget(QWidget):
                 directory = QDir(dir)
                 onlyfiles = [f for f in os.listdir(dir) if os.path.isfile(os.path.join(dir, f))]
                 statinfo = os.path.getctime(os.path.join(dir,onlyfiles[0]))
-                date = datetime.datetime.fromtimestamp(statinfo).strftime('%Y-%m-%d %H:%M:%S')
+                date_python = datetime.datetime.fromtimestamp(statinfo)
+                print(date_python)
+                date = date_python.strftime('%Y-%m-%d %H:%M:%S')
                 if dic_month[month] in date[5:7]:
                     if year in date[:4] or year == "Année":
-                        result.append(directory)
-        return result
+                        result.append((directory,date_python))
+        liste_trie = sorted(result, key=lambda result: result[1],  reverse=True)
+        sortie = []
+        for i in liste_trie:
+            sortie.append(i[0])
+        return sortie
 
+    @pyqtSlot()
     def entrPress(self):
         self.fichier = self.lineEdit.text()
         self.update_view()
 
+    @pyqtSlot()
     def select_month(self):
         self.month = self.cb_month.currentText()
         self.update_view()
 
+    @pyqtSlot()
     def select_year(self):
         self.year = self.cb_year.currentText()
         self.update_view()
 
-
+    @pyqtSlot()
     def create_dir(self):
         self.d = QDialog()
-        self.d.resize(200,240)
-        self.line = QLineEdit(self.d)
-        self.nom = QLineEdit(self.d)
+        self.d.resize(200,280)
+        self.chantier_name = QLineEdit(self.d)
+        """self.nom = QLineEdit(self.d)
         self.prenom = QLineEdit(self.d)
         self.adresse = QLineEdit(self.d)
-        self.line.resize(100,20)
+        self.chantier_name.resize(100, 20)
         self.nom.resize(100,20)
         self.prenom.resize(100,20)
         self.adresse.resize(100,20)
-        self.line.move(50,0)
+        self.chantier_name.move(50, 0)
         self.nom.move(50,30)
         self.prenom.move(50,60)
         self.adresse.move(50,90)
-        self.line.setPlaceholderText("Nom du chantier")
         self.nom.setPlaceholderText("Nom du client")
         self.prenom.setPlaceholderText("Prenom du client")
-        self.adresse.setPlaceholderText("Adresse du client")
-        self.line.textChanged.connect(self.disableButton)
+        self.adresse.setPlaceholderText("Adresse du client")"""
+        self.chantier_name.setPlaceholderText("Nom du chantier")
+        self.chantier_name.move(50, 0)
+        self.chantier_name.textChanged.connect(self.disableButton)
         self.radio_devis = QCheckBox("Devis", self.d)
         self.radio_devis.setChecked(True)
         self.radio_devis.move(20,120)
         self.radio_barreau = QCheckBox("Barreau", self.d)
         self.radio_barreau.setChecked(True)
         self.radio_barreau.move(20,160)
+        self.radio_coupe = QCheckBox("Liste de coupe", self.d)
+        self.radio_coupe.setChecked(True)
+        self.radio_coupe.move(20,200)
         self.b1 = QPushButton("ok", self.d)
         self.b1.setEnabled(False)
         self.b1.resize(100,40)
-        self.b1.move(50, 180)
+        self.b1.move(50, 230)
         self.b1.clicked.connect(self.create_file)
         self.d.setWindowTitle("Creation")
         self.d.setWindowModality(Qt.ApplicationModal)
         self.d.exec_()
 
+    @pyqtSlot()
     def disableButton(self):
-        if len(self.line.text()) > 0:
+        if len(self.chantier_name.text()) > 0:
             self.b1.setEnabled(True)
 
+    @pyqtSlot()
     def create_file(self):
         self.d.done(1)
-        text=self.line.text()
+        text=self.chantier_name.text()
         path = os.path.join(self.path, str(text))
         try:
             os.makedirs(path)
@@ -161,9 +179,12 @@ class Widget(QWidget):
             if self.radio_barreau.isChecked():
                 xls_path = os.path.join(path, "devis_" + str(text) + ".xls")
                 shutil.copyfile('source/modele_devis.xls',xls_path)
-                name="toto"
-                if self.nom.text():
-                    self.insert_in_xls(xls_path, self.nom)
+                #name="toto"
+                #if self.nom.text():
+                    #self.insert_in_xls(xls_path, self.nom)
+
+            if self.radio_coupe.isChecked():
+                shutil.copyfile('source/modele_coupe.xls', os.path.join(path,"liste_coupe_"+str(text)+".xls"))
 
         except OSError:
             msg = QMessageBox()
